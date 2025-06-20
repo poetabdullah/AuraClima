@@ -6,3 +6,4 @@ joblib
 matplotlib
 numpy
 rich<14
+plotly>=5.0
