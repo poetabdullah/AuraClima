@@ -2,7 +2,7 @@
 title: AuraClima
 emoji: ☀️
 colorFrom: blue
-colorTo: orange
+colorTo: yellow
 sdk: streamlit
 sdk_version: "1.26.0"
 app_file: streamlit_app.py
