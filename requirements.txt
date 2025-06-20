@@ -1,15 +1,9 @@
-<<<<<<< HEAD
 tensorflow-cpu==2.13.0
-=======
 tensorflow==2.19.0
->>>>>>> e94ef65544058eb632ef850b34ef4c95478aed12
 streamlit==1.26.0
 pandas
 scikit-learn
 joblib
 matplotlib
 numpy
-<<<<<<< HEAD
 rich==14.0.0
-=======
->>>>>>> e94ef65544058eb632ef850b34ef4c95478aed12
