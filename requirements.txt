@@ -1,9 +1,9 @@
-tensorflow==2.15.0
+tensorflow==2.14.0
 streamlit==1.26.0
 pandas
 scikit-learn
 joblib
 matplotlib
-numpy
-rich<14
+numpy>=1.21,<1.25
+rich==14.0.0
 plotly>=5.0
