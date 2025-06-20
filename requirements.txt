@@ -4,5 +4,4 @@ pandas
 scikit-learn
 joblib
 matplotlib
-numpy>=1.21,<1.25
 plotly>=5.0
