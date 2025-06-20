@@ -5,5 +5,4 @@ scikit-learn
 joblib
 matplotlib
 numpy>=1.21,<1.25
-rich==14.0.0
 plotly>=5.0
