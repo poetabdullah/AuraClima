@@ -385,7 +385,7 @@ def create_enhanced_plot(hist_years, series_co2, fut_years, pred3, country):
     return fig
 
 
-def forecast_by_country(data):
+def forecast_by_country(data, df_ct=None):
     st.markdown('<h2 style="color: #1f77b4; text-align: center;">🌍 Climate Intelligence Dashboard</h2>',
                 unsafe_allow_html=True)
 
@@ -413,7 +413,7 @@ def forecast_by_country(data):
     if not country:
         return
 
-    df_ct = df_agri[df_agri['Area'] == country].sort_values('Year')
+    df_ct = df_agri[df_ct['Area'] == country].sort_values('Year')
     latest_year = int(df_ct['Year'].max())
 
     # Create three columns for models
@@ -483,28 +483,59 @@ def forecast_by_country(data):
             country_features = data["country_features"]
             country_vec = np.zeros(len(country_features))
 
+            # --- START DEBUG PRINTS FOR COUNTRY VEC ---
+            print(f"DEBUG_M3: Selected Country: {country}")
+            print(f"DEBUG_M3: country_features (from load_all): {country_features[:5]}... ({len(country_features)} total)")
+            # --- END DEBUG PRINTS ---
+
+            found_country_in_features = False # New flag
             for i, name in enumerate(country_features):
                 if name == f"Country_{country}":
                     country_vec[i] = 1
+                    found_country_in_features = True # Set flag
                     break
+
+            # --- START DEBUG PRINTS FOR COUNTRY VEC ---
+            if not found_country_in_features:
+                print(f"DEBUG_M3: WARNING! '{country}' not found in country_features for one-hot encoding!")
+            print(f"DEBUG_M3: Generated country_vec (sum should be 1.0): {np.sum(country_vec)}")
+            # --- END DEBUG PRINTS ---
 
             if not dfc.empty:
                 year_cols = [c for c in dfc.columns if c.isdigit()]
-                series_co2 = dfc.iloc[0][year_cols].astype(float).values
+
+                # Convert year columns to numeric, handling potential errors and ensuring order
+                series_co2_raw = dfc.iloc[0][year_cols].astype(float)
+                # Drop any remaining NaNs in the series (should be filled from preprocessing, but safety check)
+                series_co2 = series_co2_raw.dropna().values
+
                 inp3 = model3.input_shape
-                window3 = inp3[1]
+                window3 = inp3[1] # Expected window size from model's input shape
+
+                # --- START DEBUG PRINTS FOR SERIES_CO2 ---
+                print(f"DEBUG_M3: Original year_cols in df_co2: {year_cols}")
+                print(f"DEBUG_M3: Raw series_co2 (first 5, last 5): {series_co2[:5]} ... {series_co2[-5:]}")
+                print(f"DEBUG_M3: Length of series_co2: {len(series_co2)}")
+                print(f"DEBUG_M3: Model3 input window (window3): {window3}")
+                # --- END DEBUG PRINTS ---
 
                 if len(series_co2) >= window3:
                     recent3 = series_co2[-window3:]
+                    # --- START DEBUG PRINTS FOR RECENT3 ---
+                    print(f"DEBUG_M3: Recent {window3} values for prediction: {recent3}")
+                    # --- END DEBUG PRINTS ---
+
                     with st.spinner("🔄 CO₂ forecasting..."):
                         pred3 = forecast_model3(model3, scaler3, recent3, country_vec)
 
                     avg_forecast = np.mean(pred3)
                     create_animated_metric("Avg CO₂ Forecast", f"{avg_forecast:.2f}", "💨")
                 else:
-                    st.info(f"⚠️ Need ≥{window3} years")
+                    st.info(f"⚠️ Need ≥{window3} years of CO₂ data for {country}. Found {len(series_co2)} years.")
+            else:
+                st.info(f"⚠️ No CO₂ data found for {country}.")
         else:
-            st.error("❌ CO₂ data unavailable")
+            st.error("❌ CO₂ data unavailable. Please check CO2_Emissions_1960-2018.csv.")
 
     # Interactive Parameter Tuning
     st.markdown("---")
@@ -560,7 +591,7 @@ def forecast_by_country(data):
             '💨 Predicted CO₂': [f"{val:.2f}" for val in pred3],
             '📈 Trend': ['↗️' if i == 0 or pred3[i] > pred3[i - 1] else '↘️' for i in range(len(pred3))]
         })
-        st.dataframe(forecast_df, use_container_width=True)
+        st.dataframe(forecast_df, use_container_width=True) 
 
 
 def about_page():
