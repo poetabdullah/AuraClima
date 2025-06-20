@@ -172,11 +172,12 @@ def load_all():
         country_features = None
 
     return {
-        "model1": model1, "model2": model2, "model3": model3,
-        "scaler1": scaler1, "scalerX2": scalerX2, "scalerY2": scalerY2, "scaler3": scaler3,
-        "feature_cols2": feature_cols2, "df_agri": df_agri, "df_co2": df_co2,
-        "country_features": country_features,
-    }
+            "model1": model1, "model2": model2, "model3": model3,
+            "scaler1": scaler1, "scalerX2": scalerX2, "scalerY2": scalerY2, "scaler3": scaler3, # <--- Ensure scaler3 is returned
+            "feature_cols2": feature_cols2, "df_agri": df_agri, "df_co2": df_co2,
+            "country_features": country_features,
+        }
+
 
 
 def forecast_model1(model, scaler, recent_values):
@@ -198,15 +199,25 @@ def predict_model2(model, scalerX, scalerY, feature_array):
 
 def forecast_model3(model, scaler, recent_series, country_vec):
     window = len(recent_series)
-    co2_scaled = scaler.transform(np.array(recent_series).reshape(-1, 1)).flatten()
-    co2_col = co2_scaled.reshape(window, 1)
+    # co2_scaled = scaler.transform(np.array(recent_series).reshape(-1, 1)).flatten()
+    co2_col = np.array(recent_series).reshape(window, 1)
     country_mat = np.tile(country_vec.reshape(1, -1), (window, 1))
-    seq = np.concatenate([co2_col, country_mat], axis=1)
-    inp = seq.reshape(1, window, seq.shape[1])
-    ypred_scaled = model.predict(inp, verbose=0).flatten()
-    ypred = scaler.inverse_transform(ypred_scaled.reshape(-1, 1)).flatten()
-    return ypred
 
+    # Concatenate raw CO2 values with country vector
+    seq = np.concatenate([co2_col, country_mat], axis=1)
+
+    # Reshape input for LSTM
+    inp = seq.reshape(1, window, seq.shape[1])
+
+    # Make prediction - model outputs raw, unscaled values
+    ypred_raw_output = model.predict(inp, verbose=0).flatten()
+
+    # --- PREVIOUSLY INCORRECT INVERSE TRANSFORM REMOVED ---
+    # ypred = scaler.inverse_transform(ypred_scaled.reshape(-1, 1)).flatten()
+    # The model's output is already the final, unscaled prediction
+    ypred = ypred_raw_output
+
+    return ypred
 
 def create_animated_metric(label, value, icon="🎯"):
     st.markdown(f"""
