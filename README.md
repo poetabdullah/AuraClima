@@ -1,13 +1,14 @@
-- title: AuraClima
-  emoji: ☀️
-  colorFrom: blue
-  colorTo: orange
-  sdk: streamlit
-  sdk_version: "1.26.0"
-  app_file: streamlit_app.py # or app.py depending on your entry file
-  pinned: false
-  ***
+---
+title: AuraClima
+emoji: ☀️
+colorFrom: blue
+colorTo: orange
+sdk: streamlit
+sdk_version: "1.26.0"
+app_file: streamlit_app.py
+pinned: false
+---
 
-AuraClima: Forecasts the climate data per country for the agricultural data and CO2 data.
+AuraClima: Forecasts the climate data per country for agricultural trends and CO₂ emissions.
 
 See the unseen, act on the future.
