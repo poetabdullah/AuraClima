@@ -1,7 +1,8 @@
-streamlit
-tensorflow
+tensorflow-cpu==2.13.0
+streamlit==1.26.0
 pandas
 scikit-learn
 joblib
 matplotlib
 numpy
+rich==14.0.0
