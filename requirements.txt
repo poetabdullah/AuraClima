@@ -1,5 +1,4 @@
-tensorflow-cpu==2.13.0
-tensorflow==2.19.0
+tensorflow-cpu
 streamlit==1.26.0
 pandas
 scikit-learn
