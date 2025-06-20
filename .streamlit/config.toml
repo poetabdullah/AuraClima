@@ -1,0 +1,2 @@
+[runtime]
+python = "3.11" # Or "3.10" or "3.9" - try 3.11 first as it's recent but widely supported.

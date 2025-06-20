@@ -1,6 +1,0 @@
-[theme]
-primaryColor = "#1f77b4"         # a blue shade
-backgroundColor = "#FFFFFF"      # white background
-secondaryBackgroundColor = "#FF7F0E" # orange accent
-textColor = "#000000"
-font = "Helvetica"
