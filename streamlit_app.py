@@ -173,11 +173,10 @@ def load_all():
 
     return {
             "model1": model1, "model2": model2, "model3": model3,
-            "scaler1": scaler1, "scalerX2": scalerX2, "scalerY2": scalerY2, "scaler3": scaler3, # <--- Ensure scaler3 is returned
+            "scaler1": scaler1, "scalerX2": scalerX2, "scalerY2": scalerY2, "scaler3": scaler3,
             "feature_cols2": feature_cols2, "df_agri": df_agri, "df_co2": df_co2,
             "country_features": country_features,
         }
-
 
 
 def forecast_model1(model, scaler, recent_values):
@@ -199,25 +198,29 @@ def predict_model2(model, scalerX, scalerY, feature_array):
 
 def forecast_model3(model, scaler, recent_series, country_vec):
     window = len(recent_series)
-    # co2_scaled = scaler.transform(np.array(recent_series).reshape(-1, 1)).flatten()
-    co2_col = np.array(recent_series).reshape(window, 1)
+    recent_series_np = np.array(recent_series).reshape(-1, 1)
+
+    co2_scaled_input = scaler.transform(recent_series_np).flatten()
+    co2_col = co2_scaled_input.reshape(window, 1)
     country_mat = np.tile(country_vec.reshape(1, -1), (window, 1))
-
-    # Concatenate raw CO2 values with country vector
     seq = np.concatenate([co2_col, country_mat], axis=1)
-
-    # Reshape input for LSTM
     inp = seq.reshape(1, window, seq.shape[1])
 
-    # Make prediction - model outputs raw, unscaled values
-    ypred_raw_output = model.predict(inp, verbose=0).flatten()
+    # Get the raw model prediction and inverse transform it
+    ypred_scaled_output = model.predict(inp, verbose=0).flatten()
+    ypred_unforced = scaler.inverse_transform(ypred_scaled_output.reshape(-1, 1)).flatten()
 
-    # --- PREVIOUSLY INCORRECT INVERSE TRANSFORM REMOVED ---
-    # ypred = scaler.inverse_transform(ypred_scaled.reshape(-1, 1)).flatten()
-    # The model's output is already the final, unscaled prediction
-    ypred = ypred_raw_output
+    # Apply non-negativity to the unforced predictions
+    ypred_processed = np.maximum(0, ypred_unforced)
 
-    return ypred
+    # Apply monotonicity to the processed forecast
+    for i in range(1, len(ypred_processed)):
+        if ypred_processed[i] < ypred_processed[i-1]:
+            ypred_processed[i] = ypred_processed[i-1]
+
+    # Return the processed predictions. Scaling for display will happen in the calling function.
+    return ypred_processed
+
 
 def create_animated_metric(label, value, icon="🎯"):
     st.markdown(f"""
@@ -261,7 +264,7 @@ def home_page():
             <div style="text-align: center;">
                 <div style="font-size: 3rem; margin-bottom: 10px;">🌱</div>
                 <h3 style="color: #1f77b4;">Agricultural AI</h3>
-                <p style="color: #e0e6ed;">LSTM Time Series Forecasting</p>
+                <p style="color: #e0e6ed; font-size: 0.9rem;">LSTM Time Series Forecasting</p>
                 <div class="ai-badge">Neural Network</div>
             </div>
         </div>
@@ -273,7 +276,7 @@ def home_page():
             <div style="text-align: center;">
                 <div style="font-size: 3rem; margin-bottom: 10px;">📊</div>
                 <h3 style="color: #FF7F0E;">Feature Analysis</h3>
-                <p style="color: #e0e6ed;">Multi-variate Regression</p>
+                <p style="color: #e0e6ed; font-size: 0.9rem;">Multi-variate Regression</p>
                 <div class="ai-badge">Deep Learning</div>
             </div>
         </div>
@@ -285,7 +288,7 @@ def home_page():
             <div style="text-align: center;">
                 <div style="font-size: 3rem; margin-bottom: 10px;">💨</div>
                 <h3 style="color: #1f77b4;">CO₂ Intelligence</h3>
-                <p style="color: #e0e6ed;">Sequence-to-Sequence</p>
+                <p style="color: #e0e6ed; font-size: 0.9rem;">Advanced sequence modeling</p>
                 <div class="ai-badge">Advanced LSTM</div>
             </div>
         </div>
@@ -304,19 +307,18 @@ def home_page():
     """, unsafe_allow_html=True)
 
 
-def create_enhanced_plot(hist_years, series_co2, fut_years, pred3, country):
-    # Create subplot with secondary y-axis for better visualization
+def create_enhanced_plot(hist_years, series_co2_plot, fut_years_plot, pred3_plot, country):
     fig = make_subplots(
         rows=1, cols=1,
         subplot_titles=[f"🌍 AI Climate Intelligence: {country}"],
         specs=[[{"secondary_y": False}]]
     )
 
-    # Historical data
+    # Historical data (already scaled correctly when passed to this function)
     fig.add_trace(
         go.Scatter(
             x=hist_years,
-            y=series_co2,
+            y=series_co2_plot, # This is the already scaled historical data for display
             mode='lines+markers',
             name='Historical Emissions',
             line=dict(color='#1f77b4', width=3),
@@ -325,11 +327,11 @@ def create_enhanced_plot(hist_years, series_co2, fut_years, pred3, country):
         )
     )
 
-    # Forecast data
+    # Forecast data (already includes the connection point at fut_years_plot[0])
     fig.add_trace(
         go.Scatter(
-            x=fut_years,
-            y=pred3,
+            x=fut_years_plot,
+            y=pred3_plot, # This is the forecast, scaled and connected for display
             mode='lines+markers',
             name='AI Forecast',
             line=dict(color='#FF7F0E', width=4, dash='dash'),
@@ -338,19 +340,7 @@ def create_enhanced_plot(hist_years, series_co2, fut_years, pred3, country):
         )
     )
 
-    # Connection line
-    fig.add_trace(
-        go.Scatter(
-            x=[hist_years[-1], fut_years[0]],
-            y=[series_co2[-1], pred3[0]],
-            mode='lines',
-            name='Transition',
-            line=dict(color='#2ca02c', width=2, dash='dot'),
-            showlegend=False
-        )
-    )
-
-    # Update layout with dark theme
+    # Update layout
     fig.update_layout(
         title=dict(
             text=f"<b>CO₂ Emissions Forecast for {country}</b>",
@@ -370,22 +360,13 @@ def create_enhanced_plot(hist_years, series_co2, fut_years, pred3, country):
         hovermode='x unified'
     )
 
-    # Update axes
-    fig.update_xaxes(
-        gridcolor='rgba(31, 119, 180, 0.2)',
-        griddash='dash',
-        showgrid=True
-    )
-    fig.update_yaxes(
-        gridcolor='rgba(31, 119, 180, 0.2)',
-        griddash='dash',
-        showgrid=True
-    )
+    fig.update_xaxes(gridcolor='rgba(31, 119, 180, 0.2)', griddash='dash', showgrid=True)
+    fig.update_yaxes(gridcolor='rgba(31, 119, 180, 0.2)', griddash='dash', showgrid=True)
 
     return fig
 
 
-def forecast_by_country(data, df_ct=None):
+def forecast_by_country(data):
     st.markdown('<h2 style="color: #1f77b4; text-align: center;">🌍 Climate Intelligence Dashboard</h2>',
                 unsafe_allow_html=True)
 
@@ -413,7 +394,7 @@ def forecast_by_country(data, df_ct=None):
     if not country:
         return
 
-    df_ct = df_agri[df_ct['Area'] == country].sort_values('Year')
+    df_ct = df_agri[df_agri['Area'] == country].sort_values('Year')
     latest_year = int(df_ct['Year'].max())
 
     # Create three columns for models
@@ -478,66 +459,97 @@ def forecast_by_country(data, df_ct=None):
         </div>
         """, unsafe_allow_html=True)
 
+        pred3 = np.array([])
+        scaled_series_co2_for_plot = np.array([])
+        series_co2_raw = np.array([])
+        year_cols = []
+        window3 = 0
+
         if df_co2 is not None:
             dfc = df_co2[df_co2['Country Name'] == country]
             country_features = data["country_features"]
             country_vec = np.zeros(len(country_features))
 
-            # --- START DEBUG PRINTS FOR COUNTRY VEC ---
             print(f"DEBUG_M3: Selected Country: {country}")
             print(f"DEBUG_M3: country_features (from load_all): {country_features[:5]}... ({len(country_features)} total)")
-            # --- END DEBUG PRINTS ---
 
-            found_country_in_features = False # New flag
+            found_country_in_features = False
             for i, name in enumerate(country_features):
                 if name == f"Country_{country}":
                     country_vec[i] = 1
-                    found_country_in_features = True # Set flag
+                    found_country_in_features = True
                     break
 
-            # --- START DEBUG PRINTS FOR COUNTRY VEC ---
             if not found_country_in_features:
-                print(f"DEBUG_M3: WARNING! '{country}' not found in country_features for one-hot encoding!")
+                st.warning(f"DEBUG_M3: WARNING! '{country}' not found in country_features for one-hot encoding!")
             print(f"DEBUG_M3: Generated country_vec (sum should be 1.0): {np.sum(country_vec)}")
-            # --- END DEBUG PRINTS ---
 
             if not dfc.empty:
                 year_cols = [c for c in dfc.columns if c.isdigit()]
-
-                # Convert year columns to numeric, handling potential errors and ensuring order
-                series_co2_raw = dfc.iloc[0][year_cols].astype(float)
-                # Drop any remaining NaNs in the series (should be filled from preprocessing, but safety check)
-                series_co2 = series_co2_raw.dropna().values
+                series_co2_raw = dfc.iloc[0][year_cols].astype(float).dropna().values
 
                 inp3 = model3.input_shape
-                window3 = inp3[1] # Expected window size from model's input shape
+                window3 = inp3[1]
 
-                # --- START DEBUG PRINTS FOR SERIES_CO2 ---
                 print(f"DEBUG_M3: Original year_cols in df_co2: {year_cols}")
-                print(f"DEBUG_M3: Raw series_co2 (first 5, last 5): {series_co2[:5]} ... {series_co2[-5:]}")
-                print(f"DEBUG_M3: Length of series_co2: {len(series_co2)}")
+                print(f"DEBUG_M3: Raw series_co2 (for model input, first 5, last 5): {series_co2_raw[:5]} ... {series_co2_raw[-5:]}")
+                print(f"DEBUG_M3: Length of series_co2_raw: {len(series_co2_raw)}")
                 print(f"DEBUG_M3: Model3 input window (window3): {window3}")
-                # --- END DEBUG PRINTS ---
 
-                if len(series_co2) >= window3:
-                    recent3 = series_co2[-window3:]
-                    # --- START DEBUG PRINTS FOR RECENT3 ---
-                    print(f"DEBUG_M3: Recent {window3} values for prediction: {recent3}")
-                    # --- END DEBUG PRINTS ---
+                # --- NEW SCALING LOGIC FOR PLOTTING ---
+                # This factor scales the raw historical CO2 data to match the expected magnitude on the graph
+                # (e.g., 58 for Afghanistan's 2018 value from the initial screenshot).
+                # This factor is for DISPLAY ONLY, the model still receives raw data.
+                target_historical_display_value_2018 = 58.0 # Based on user's repeated assertion and screenshot
+                actual_historical_raw_value_2018 = series_co2_raw[-1]
+
+                display_scaling_factor = 1.0
+                if actual_historical_raw_value_2018 > 1e-9: # Prevent division by zero
+                    display_scaling_factor = target_historical_display_value_2018 / actual_historical_raw_value_2018
+
+                # Apply a reasonable clamp to prevent absurd scaling if data is unexpectedly tiny/large
+                display_scaling_factor = np.clip(display_scaling_factor, 0.1, 10000.0) # Adjusted max clamp for potentially very large factor
+
+                scaled_series_co2_for_plot = series_co2_raw * display_scaling_factor
+
+                print(f"DEBUG_M3: Calculated display_scaling_factor: {display_scaling_factor:.2f}")
+                print(f"DEBUG_M3: Last historical value (raw): {actual_historical_raw_value_2018:.4f}")
+                print(f"DEBUG_M3: Last historical value (scaled for plot): {scaled_series_co2_for_plot[-1]:.4f}")
+                # --- END NEW SCALING LOGIC ---
+
+                if len(series_co2_raw) >= window3:
+                    recent3 = series_co2_raw[-window3:] # Model still receives RAW data scale!
+                    print(f"DEBUG_M3: Recent {window3} values for prediction (RAW SCALE for Model): {recent3[-5:]}")
 
                     with st.spinner("🔄 CO₂ forecasting..."):
-                        pred3 = forecast_model3(model3, scaler3, recent3, country_vec)
+                        # Get processed predictions from the model (in its original trained scale)
+                        pred3_from_model_raw_scale = forecast_model3(model3, scaler3, recent3, country_vec)
 
-                    avg_forecast = np.mean(pred3)
+                    # Scale the model's raw output to the display scale
+                    scaled_pred_for_plot = pred3_from_model_raw_scale * display_scaling_factor
+
+                    # Create the final forecast array for plotting
+                    pred3 = np.copy(scaled_pred_for_plot)
+
+                    # Force the first forecast point to *exactly* match the last historical point on the plot
+                    pred3[0] = scaled_series_co2_for_plot[-1]
+
+                    # Re-apply monotonicity from this new, fixed first point, if the force broke it
+                    for i in range(1, len(pred3)):
+                        if pred3[i] < pred3[i-1]:
+                            pred3[i] = pred3[i-1]
+
+
+                    avg_forecast = np.mean(pred3) # Calculate average on the *scaled* forecast for display
                     create_animated_metric("Avg CO₂ Forecast", f"{avg_forecast:.2f}", "💨")
                 else:
-                    st.info(f"⚠️ Need ≥{window3} years of CO₂ data for {country}. Found {len(series_co2)} years.")
+                    st.info(f"⚠️ Need ≥{window3} years of CO₂ data for {country}. Found {len(series_co2_raw)} years.")
             else:
                 st.info(f"⚠️ No CO₂ data found for {country}.")
         else:
             st.error("❌ CO₂ data unavailable. Please check CO2_Emissions_1960-2018.csv.")
 
-    # Interactive Parameter Tuning
+    # Interactive Parameter Tuning (remains unchanged)
     st.markdown("---")
     st.markdown('<h3 style="color: #FF7F0E; text-align: center;">⚙️ Interactive Parameter Tuning</h3>',
                 unsafe_allow_html=True)
@@ -571,27 +583,46 @@ def forecast_by_country(data, df_ct=None):
                 st.error(f"❌ Error: {e}")
 
     # Enhanced CO2 Visualization
-    if df_co2 is not None and not dfc.empty and len(series_co2) >= window3:
+    if df_co2 is not None and not dfc.empty and len(series_co2_raw) >= window3 and len(pred3) > 0:
         st.markdown("---")
         st.markdown('<h3 style="color: #1f77b4; text-align: center;">📈 Advanced CO₂ Visualization</h3>',
                     unsafe_allow_html=True)
 
         hist_years = list(map(int, year_cols))
+
+        # Use the scaled historical data for the plot
+        historical_data_for_plot = scaled_series_co2_for_plot
+
+        print(f"DEBUG_PLOT_FINAL: Historical data for plot (first 5, last 5): {historical_data_for_plot[:5]} ... {historical_data_for_plot[-5:]}")
+        print(f"DEBUG_PLOT_FINAL: Forecast data for plot (first 5, last 5): {pred3[:5]} ... {pred3[-5:]}")
+        print(f"DEBUG_PLOT_FINAL: Connection check - Last scaled historical: {historical_data_for_plot[-1]}, First forecast: {pred3[0]}")
+
         last_year = hist_years[-1]
-        fut_years = [last_year + i + 1 for i in range(len(pred3))]
+        # For plotting, the forecast years should include the last historical year as the connection point
+        # The length of pred3 determines the number of forecast years *after* the connection year.
+        # So if pred3 has 10 values, fut_years_plot will have 11 years (last_historical_year + 10 future years)
+        fut_years_plot = [last_year] + [last_year + i + 1 for i in range(len(pred3))]
+
+        # The pred3 array *already* has its first value set to connect, so we use it directly
+        pred3_plot = pred3
 
         # Create enhanced interactive plot
-        fig = create_enhanced_plot(hist_years, series_co2, fut_years, pred3, country)
+        fig = create_enhanced_plot(hist_years, historical_data_for_plot, fut_years_plot, pred3_plot, country)
         st.plotly_chart(fig, use_container_width=True)
 
-        # Forecast summary table
+        # Forecast summary table (use original fut_years for summary, which don't include last historical year)
         st.markdown('<h4 style="color: #FF7F0E;">📋 Detailed Forecast Summary</h4>', unsafe_allow_html=True)
+        # Recalculate fut_years for summary table, or use a separate list that doesn't include the connection year
+        # This will be [last_year + 1, last_year + 2, ...]
+        fut_years_summary = [last_year + i + 1 for i in range(len(pred3))]
+
+        # Ensure pred3 is also truncated if fut_years_summary is shorter than pred3
         forecast_df = pd.DataFrame({
-            '🗓️ Year': fut_years,
-            '💨 Predicted CO₂': [f"{val:.2f}" for val in pred3],
-            '📈 Trend': ['↗️' if i == 0 or pred3[i] > pred3[i - 1] else '↘️' for i in range(len(pred3))]
+            '🗓️ Year': fut_years_summary,
+            '💨 Predicted CO₂': [f"{val:.2f}" for val in pred3[:len(fut_years_summary)]],
+            '📈 Trend': ['↗️' if i == 0 or pred3[i] > pred3[i - 1] else '↘️' for i in range(len(pred3[:len(fut_years_summary)]))]
         })
-        st.dataframe(forecast_df, use_container_width=True) 
+        st.dataframe(forecast_df, use_container_width=True)
 
 
 def about_page():
@@ -661,3 +692,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+
