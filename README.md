@@ -1,7 +1,5 @@
 # 🌱 AuraClima: AI-Powered Climate Forecasting with Agricultural Insights
 
-![AuraClima Banner](https://www.linkedin.com/feed/update/urn:li:activity:7346930795728531457/)
-
 **AuraClima** is a deep learning-driven climate prediction platform designed to forecast CO₂ emissions per country based on agricultural and economic indicators. Leveraging powerful LSTM and ANN models, AuraClima not only visualizes historic and future emission trends but also allows users to simulate changes using interactive sliders. Deployed on [Hugging Face Spaces](https://huggingface.co/spaces/AbdullahImran/AuraClima) via Streamlit, this tool bridges data science with climate activism.
 
 ---
