@@ -90,19 +90,6 @@ AuraClima is live and hosted on:
 
 ---
 
-## 📂 File Structure
-
-```
-AuraClima/
-├── models/               # Trained ANN and LSTM models
-├── notebooks/            # Development notebooks
-├── streamlit_app.py      # Main app entry point
-├── requirements.txt      # Python dependencies
-├── README.md             # You are here!
-```
-
----
-
 ## 📈 Sample Forecasts
 
 * **India**: 18% projected increase in agri-CO₂ by 2028
